@@ -47,7 +47,7 @@ module TopshelfAdapter =
 open TopshelfAdapter
 [<EntryPoint>]
 let main argv =
-    let desc = "ConsoleAppFSharpCore"
+    let desc = "SuaveFSharp"
     let rc = HostFactory.Run(fun x ->
         x.BeforeInstall(fun () ->
             sprintf "Service about to install at %A" (getNow())

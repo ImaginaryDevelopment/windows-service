@@ -1,4 +1,4 @@
-﻿namespace ConsoleApplicationFSharp.AssemblyInfo
+﻿namespace SuaveFSharp.AssemblyInfo
 
 open System.Reflection
 open System.Runtime.CompilerServices
@@ -7,11 +7,11 @@ open System.Runtime.InteropServices
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[<assembly: AssemblyTitle("ConsoleApplicationFSharp")>]
+[<assembly: AssemblyTitle("SuaveFSharp")>]
 [<assembly: AssemblyDescription("")>]
 [<assembly: AssemblyConfiguration("")>]
 [<assembly: AssemblyCompany("")>]
-[<assembly: AssemblyProduct("ConsoleApplicationFSharp")>]
+[<assembly: AssemblyProduct("SuaveFSharp")>]
 [<assembly: AssemblyCopyright("Copyright ©  2018")>]
 [<assembly: AssemblyTrademark("")>]
 [<assembly: AssemblyCulture("")>]

@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27130.2020
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ConsoleApplicationFSharp", "ConsoleApplicationFSharp\ConsoleApplicationFSharp.fsproj", "{75BDF648-93FC-45CC-8C11-3D13D472332F}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SuaveFSharp", "ConsoleApplicationFSharp\SuaveFSharp.fsproj", "{75BDF648-93FC-45CC-8C11-3D13D472332F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
