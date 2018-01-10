@@ -106,7 +106,8 @@ let main argv =
         ) |> ignore
         x.StartAutomaticallyDelayed() |> ignore
         service x (fun s ->
-            let factory = fun _ -> new ServiceWrapperDisposable(timerService())
+            //let factory = fun _ -> new ServiceWrapperDisposable(timerService())
+            let factory = fun _ -> new ServiceWrapperDisposable(SuaveFSharp.SuaveService.makeSuaveService())
             s
             |> constructUsing factory
             |> whenStarted (fun tc -> tc.Start())
