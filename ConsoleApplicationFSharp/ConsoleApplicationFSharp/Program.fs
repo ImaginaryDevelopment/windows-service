@@ -13,9 +13,16 @@ let logAction filename msg =
     let fullPath = Path.Combine(path,filename)
     File.AppendAllText(fullPath, msg)
 
+module Seq =
+    let iterTry f =
+        Seq.iter(fun x ->
+            try
+                f x
+            with _ -> () // Dispose should never throw, but in case it does, swallow so we can do the other disposals
+        )
 type TownCrier () =
     let timer = new Timer(1000., AutoReset = true)
-    let disp = 
+    let disp =
         let mutable recorded = false
         [
             timer.Elapsed.Subscribe(fun _ ->
@@ -31,8 +38,13 @@ type TownCrier () =
     let stop () = timer.Stop()
     member __.Start = start
     member __.Stop = stop
+    interface IDisposable with
+        member __.Dispose() =
+            disp
+            |> Seq.iterTry(fun x ->
+                x.Dispose())
 module TopshelfAdapter =
-    let inline service<'T when 'T : not struct> (hc:HostConfigurators.HostConfigurator) f = 
+    let inline service<'T when 'T : not struct> (hc:HostConfigurators.HostConfigurator) f =
         hc.Service<'T>(Action<_>(fun (s:ServiceConfigurators.ServiceConfigurator<'T>) ->
             f s
             ()
@@ -65,9 +77,9 @@ let main argv =
         ) |> ignore
         x.StartAutomaticallyDelayed() |> ignore
         service x (fun s ->
-            let factory = fun _ -> TownCrier()
+            let factory = fun _ -> new TownCrier()
             s
-            |> constructUsing factory 
+            |> constructUsing factory
             |> whenStarted (fun tc -> tc.Start())
             |> whenStopped (fun tc -> tc.Stop())
             |> ignore
