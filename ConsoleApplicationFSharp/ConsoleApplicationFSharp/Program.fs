@@ -4,15 +4,21 @@ open System
 open System.IO
 open Topshelf
 open SuaveFSharp.Schema
+open System.Diagnostics
 
 type Timer = System.Timers.Timer
 let mutable getNow = fun () -> DateTime.Now
 
-let logAction filename msg =
-    let path = Environment.CurrentDirectory // try this in case a hard coded path was unnecessary
-    printfn "%s?!??" msg
-    let fullPath = Path.Combine(path,filename)
-    File.AppendAllText(fullPath, msg)
+let serviceName = "SuaveFSharp"
+let pidOpt = tryFSwallow (fun () -> Process.GetCurrentProcess().Id)
+let logAction =
+    let rec logger msg =
+        let path = Environment.CurrentDirectory
+        let msg = sprintf "%s:%A:%A:%s" serviceName pidOpt (getNow()) msg
+        printfn "%s" msg
+        let fullPath = Path.Combine(path,"svc.log")
+        File.AppendAllText(fullPath, sprintf "%s%s" msg Environment.NewLine)
+    logger
 
 module Seq =
     let iterTry f =
@@ -32,20 +38,40 @@ let timerService () =
                     if not recorded then
                         recorded <- true
                         sprintf "Engaged starting at %A" (getNow())
-                        |> logAction "running.log"
+                        |> logAction
                     printfn "It is %A and all is well" (getNow())
                 )
                 timer :> IDisposable
             ]
             |> Seq.iterTry(fun d -> d.Dispose())
-        
+
     {Start=timer.Start;Stop = timer.Stop}, disp
 
+let recordConstruction () = 
+    sprintf "Wrapper created with context '%s','%A'" Environment.CommandLine (Environment.GetCommandLineArgs())
+    |> logAction
 type ServiceWrapper(x:ServiceDetails) =
-    let start () = x.Start()
     let stop () = x.Stop()
-    member __.Start = start
-    member __.Stop = stop
+    let mutable t = null
+    let mutable t2 = 
+        (new System.Threading.Tasks.Task(Action recordConstruction)).Start()
+    member __.Start () =
+        let inline f () =
+            x.Start()
+        t <- Threading.Thread(Threading.ThreadStart f)
+        t.Start()
+    member __.Stop () =
+        t
+        |> Option.ofObj
+        |> Option.iter(fun t ->
+            logAction "Asking service to stop"
+            stop()
+            logAction "Service stop returned control"
+            System.Threading.Thread.Sleep 200
+            t.Abort()
+            logAction "Thread aborted"
+        )
+
 type ServiceWrapperDisposable(x:ServiceDetails,disposal) =
     inherit ServiceWrapper(x)
     interface IDisposable with
@@ -65,23 +91,18 @@ module TopshelfAdapter =
         sc.WhenStopped(Action<_>(f))
     ()
 open TopshelfAdapter
+
 [<EntryPoint>]
 let main argv =
-    let desc = "SuaveFSharp"
     let rc = HostFactory.Run(fun x ->
         x.BeforeInstall(fun () ->
-            sprintf "Service about to install at %A" (getNow())
-            |> logAction "beforeInstall.log"
+            logAction "Service about to install"
         ) |> ignore
         x.AfterInstall(fun () ->
-            getNow()
-            |> sprintf "Service installed at %A"
-            |> logAction "afterInstall.log"
+            logAction "Service installed"
         ) |> ignore
         x.AfterUninstall(fun () ->
-            getNow()
-            |> sprintf "Service uninstalled at %A"
-            |> logAction "afterUninstall.log"
+            logAction "Service uninstalled"
         ) |> ignore
         x.StartAutomaticallyDelayed() |> ignore
         service x (fun s ->
@@ -94,9 +115,9 @@ let main argv =
             ()
         ) |> ignore
         x.RunAsLocalSystem() |> ignore
-        x.SetDescription desc
-        x.SetDisplayName desc
-        x.SetServiceName desc
+        x.SetDescription serviceName
+        x.SetDisplayName serviceName
+        x.SetServiceName serviceName
         ()
     )
     let exitCode = Convert.ChangeType(rc, rc.GetTypeCode()) :?> int
