@@ -3,6 +3,7 @@
 open System
 open System.IO
 open Topshelf
+open SuaveFSharp.Schema
 
 type Timer = System.Timers.Timer
 let mutable getNow = fun () -> DateTime.Now
@@ -20,29 +21,36 @@ module Seq =
                 f x
             with _ -> () // Dispose should never throw, but in case it does, swallow so we can do the other disposals
         )
-type TownCrier () =
+
+let timerService () =
     let timer = new Timer(1000., AutoReset = true)
     let disp =
         let mutable recorded = false
-        [
-            timer.Elapsed.Subscribe(fun _ ->
-                if not recorded then
-                    recorded <- true
-                    sprintf "Engaged starting at %A" (getNow())
-                    |> logAction "running.log"
-                printfn "It is %A and all is well" (getNow())
-            )
-            timer :> IDisposable
-        ]
-    let start () = timer.Start()
-    let stop () = timer.Stop()
+        fun () ->
+            [
+                timer.Elapsed.Subscribe(fun _ ->
+                    if not recorded then
+                        recorded <- true
+                        sprintf "Engaged starting at %A" (getNow())
+                        |> logAction "running.log"
+                    printfn "It is %A and all is well" (getNow())
+                )
+                timer :> IDisposable
+            ]
+            |> Seq.iterTry(fun d -> d.Dispose())
+        
+    {Start=timer.Start;Stop = timer.Stop}, disp
+
+type ServiceWrapper(x:ServiceDetails) =
+    let start () = x.Start()
+    let stop () = x.Stop()
     member __.Start = start
     member __.Stop = stop
+type ServiceWrapperDisposable(x:ServiceDetails,disposal) =
+    inherit ServiceWrapper(x)
     interface IDisposable with
-        member __.Dispose() =
-            disp
-            |> Seq.iterTry(fun x ->
-                x.Dispose())
+        member __.Dispose() = disposal()
+
 module TopshelfAdapter =
     let inline service<'T when 'T : not struct> (hc:HostConfigurators.HostConfigurator) f =
         hc.Service<'T>(Action<_>(fun (s:ServiceConfigurators.ServiceConfigurator<'T>) ->
@@ -77,7 +85,7 @@ let main argv =
         ) |> ignore
         x.StartAutomaticallyDelayed() |> ignore
         service x (fun s ->
-            let factory = fun _ -> new TownCrier()
+            let factory = fun _ -> new ServiceWrapperDisposable(timerService())
             s
             |> constructUsing factory
             |> whenStarted (fun tc -> tc.Start())
