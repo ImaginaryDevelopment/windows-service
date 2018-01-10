@@ -47,13 +47,13 @@ let timerService () =
 
     {Start=timer.Start;Stop = timer.Stop}, disp
 
-let recordConstruction () = 
+let recordConstruction () =
     sprintf "Wrapper created with context '%s','%A'" Environment.CommandLine (Environment.GetCommandLineArgs())
     |> logAction
 type ServiceWrapper(x:ServiceDetails) =
     let stop () = x.Stop()
     let mutable t = null
-    let mutable t2 = 
+    let mutable t2 =
         (new System.Threading.Tasks.Task(Action recordConstruction)).Start()
     member __.Start () =
         let inline f () =
