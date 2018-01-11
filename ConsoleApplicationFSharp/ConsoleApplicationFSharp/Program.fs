@@ -50,11 +50,18 @@ let timerService () =
 let recordConstruction () =
     sprintf "Wrapper created with context '%s','%A'" Environment.CommandLine (Environment.GetCommandLineArgs())
     |> logAction
-type ServiceWrapper(x:ServiceDetails) =
+type ServiceWrapper(x:ServiceDetails, disposalOpt) =
     let stop () = x.Stop()
     let mutable t = null
-    let mutable t2 =
-        (new System.Threading.Tasks.Task(Action recordConstruction)).Start()
+    let disposal =
+        let task = (new System.Threading.Tasks.Task(Action recordConstruction))
+        task.Start()
+        [   yield task :> IDisposable
+            match disposalOpt with
+            | Some d -> yield d
+            | None -> ()
+        ]
+
     member __.Start () =
         let inline f () =
             x.Start()
@@ -71,11 +78,11 @@ type ServiceWrapper(x:ServiceDetails) =
             t.Abort()
             logAction "Thread aborted"
         )
-
-type ServiceWrapperDisposable(x:ServiceDetails,disposal) =
-    inherit ServiceWrapper(x)
     interface IDisposable with
-        member __.Dispose() = disposal()
+        member __.Dispose() = 
+            disposal
+            |> Seq.iterTry(fun x -> x.Dispose())
+
 
 module TopshelfAdapter =
     let inline service<'T when 'T : not struct> (hc:HostConfigurators.HostConfigurator) f =
@@ -93,7 +100,7 @@ module TopshelfAdapter =
 open TopshelfAdapter
 
 [<EntryPoint>]
-let main argv =
+let main _argv =
     let rc = HostFactory.Run(fun x ->
         x.BeforeInstall(fun () ->
             logAction "Service about to install"
@@ -106,8 +113,9 @@ let main argv =
         ) |> ignore
         x.StartAutomaticallyDelayed() |> ignore
         service x (fun s ->
-            //let factory = fun _ -> new ServiceWrapperDisposable(timerService())
-            let factory = fun _ -> new ServiceWrapperDisposable(SuaveFSharp.SuaveService.makeSuaveService())
+            let factory = fun _ ->
+                let sd,d = SuaveFSharp.SuaveService.makeSuaveService()
+                new ServiceWrapper(sd, Some d)
             s
             |> constructUsing factory
             |> whenStarted (fun tc -> tc.Start())
