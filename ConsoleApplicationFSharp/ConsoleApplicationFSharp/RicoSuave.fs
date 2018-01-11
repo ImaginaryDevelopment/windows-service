@@ -118,25 +118,63 @@ module ServeItDammit =
     open System.IO
     open Suave.Sockets
     open Suave.Sockets.Control
+    open Suave.Utils
+
+    module ContentRange =
+        let parseContentRange (input:string) =
+          let contentUnit = input.Split([|' '; '='|], 2)
+          let rangeArray = contentUnit.[1].Split([|'-'|])
+          let start = int64 rangeArray.[0]
+          let finish = if Int64.TryParse (rangeArray.[1], ref 0L) then Some <| int64 rangeArray.[1] else None
+          start, finish
+          
+        let (|ContentRange|_|) (context:HttpContext) =
+          match context.request.header "range" with
+          | Choice1Of2 rangeValue -> Some <| parseContentRange rangeValue
+          | Choice2Of2 _ -> None
+      
+        let getStream (ctx:HttpContext) fs =
+            match ctx with
+            | ContentRange (start, finish) ->
+              let length = finish |> Option.bind (fun finish -> Some (finish - start))
+              new RangedStream(fs, start, length, true) :> Stream, start, fs.Length, HTTP_206.status
+            | _ -> fs, 0L, fs.Length, HTTP_200.status
 
     let serveView homeFolder fView path ctx =
         try
-            let sendCleaned getFs compression ctx =
-                let writeFile key (conn, _) =
-                    socket {
-                      let getLm = fun path -> FileInfo(path).LastWriteTime
-                      let ts = Compression.transformStream key getFs getLm compression ctx.runtime.compressionFolder ctx
-                      use! fs = ts conn
-                      do! asyncWriteLn conn (sprintf "Content-Length: %d" (fs : Stream).Length)
-                      do! asyncWriteLn conn ""
-                      if ctx.request.``method`` <> HttpMethod.HEAD && fs.Length > 0L then
-                        do! transferStream conn fs
-                    }
+            let sendCleaned uncompressedStream compression ctx =
+                let writeFile key =
+                    let fs, start, total, status = ContentRange.getStream ctx uncompressedStream
+                    (fun (conn, _) ->
+                        socket {
+                            let getLm = fun path -> FileInfo(path).LastWriteTime
+                            let! (encoding,fs) = Compression.transformStream key fs getLm compression ctx.runtime.compressionFolder ctx
+                            let finish = start + fs.Length - 1L
+                            try
+                                match encoding with
+                                | Some n ->
+                                    let! (_,conn) = asyncWriteLn (sprintf "Content-Range: bytes %d-%d/*" start finish) conn
+                                    let! (_,conn) = asyncWriteLn (String.Concat [| "Content-Encoding: "; n.ToString() |]) conn
+                                    let! (_,conn) = asyncWriteLn (sprintf "Content-Length: %d\r\n" (fs : Stream).Length) conn
+                                    let! conn = flush conn
+                                    if ctx.request.``method`` <> HttpMethod.HEAD && fs.Length > 0L then
+                                      do! transferStream conn fs
+                                    return conn
+                                | None ->
+                                    let! (_,conn) = asyncWriteLn (sprintf "Content-Range: bytes %d-%d/%d" start finish total) conn
+                                    let! (_,conn) = asyncWriteLn (sprintf "Content-Length: %d\r\n" (fs : Stream).Length) conn
+                                    let! conn = flush conn
+                                    if ctx.request.``method`` <> HttpMethod.HEAD && fs.Length > 0L then
+                                      do! transferStream conn fs
+                                    return conn
+                            finally fs.Dispose()
+                        }), status
+                let (task,status:HttpStatus) = writeFile path
                 { ctx with
                     response =
                       { ctx.response with
-                          status = HTTP_200
-                          content = SocketTask (writeFile path) } }
+                          status = status
+                          content = SocketTask task } }
                 |> succeed
             let stringToStream (s:string) =
                 let stream = new MemoryStream()
@@ -146,7 +184,7 @@ module ServeItDammit =
                 stream.Position <- 0L
                 stream :> Stream
             let filePath = Path.Combine(ctx.runtime.homeDirectory, path)
-            let getFs _relativePath =
+            let uncompressed =
                 debugMsg (sprintf "getting Fs for %s" filePath)
                 let text = File.ReadAllText filePath
                 let cleaned:string = text |> fView
@@ -165,8 +203,8 @@ module ServeItDammit =
                     |> replace "@RenderBody()" cleaned
                     |> replace "@RenderScripts()" String.Empty
                 |> stringToStream
-            Recombinators.resource filePath File.Exists (fun _ -> DateTime.Now) (Path.GetExtension) (fun _fn _compression -> sendCleaned getFs (* do not set compression to true for views, as they should not get cached, which compression appears to do *) false) ctx
-        with ex ->
+            Recombinators.resource filePath File.Exists (fun _ -> DateTime.Now) (Path.GetExtension) (fun _fn _compression -> sendCleaned uncompressed (* do not set compression to true for views, as they should not get cached, which compression appears to do *) false) ctx
+        with _ex ->
             BAD_REQUEST (sprintf "Unable to locate view (home:%s)" homeFolder) ctx
 
 let redirectWithReturnPath redirection =
