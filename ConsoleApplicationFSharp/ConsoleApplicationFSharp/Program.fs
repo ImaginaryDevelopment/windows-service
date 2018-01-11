@@ -10,7 +10,7 @@ type Timer = System.Timers.Timer
 let mutable getNow = fun () -> DateTime.Now
 
 let serviceName = "SuaveFSharp"
-let pidOpt = tryFSwallow (fun () -> Process.GetCurrentProcess().Id)
+let pidOpt = SuaveFSharp.BReusable.tryFSwallow (fun () -> Process.GetCurrentProcess().Id)
 let logAction =
     let rec logger msg =
         let path = Environment.CurrentDirectory

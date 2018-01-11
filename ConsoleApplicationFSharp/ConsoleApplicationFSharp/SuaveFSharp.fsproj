@@ -67,7 +67,13 @@
     <Content Include="Views\Home\Index.html" />
     <Content Include="Views\Shared\_Layout.html" />
     <Content Include="Views\Authentication\Login.html" />
+    <Compile Include="BReusable.fs" />
     <Compile Include="Schema.fs" />
+    <Compile Include="AdoHelper.fs" />
+    <Compile Include="Dal.fs" />
+    <Compile Include="Helpers.fs" />
+    <Compile Include="Domain.fs" />
+    <Compile Include="Encryption.fs" />
     <Compile Include="RicoSuave.fs" />
     <Compile Include="SuaveService.fs" />
     <Compile Include="Program.fs" />
@@ -79,11 +85,15 @@
       <HintPath>..\packages\FSharp.Core.4.2.3\lib\net45\FSharp.Core.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\packages\Newtonsoft.Json.10.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="Suave">
       <HintPath>..\packages\Suave.2.2.1\lib\net40\Suave.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.ValueTuple">
       <HintPath>..\packages\System.ValueTuple.4.4.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>

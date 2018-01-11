@@ -7,6 +7,10 @@ open Suave.RequestErrors
 open Suave.State.CookieStateStore
 open System
 
+let hoist f x =
+    f()
+    x
+
 let debugMsg msg =
     printfn "%s" msg
 //        printfn "printfn:%s" msg
@@ -53,6 +57,7 @@ module Files =
     module Views =
         let authentication = "Views/Authentication/Login.html"
         let layout = "Views/Shared/_Layout.html"
+        let index = "Views/Home/Index.html"
 
 [<RequireQualifiedAccess>]
 module Recombinators =
@@ -183,25 +188,25 @@ module ServeItDammit =
                 writer.Flush()
                 stream.Position <- 0L
                 stream :> Stream
-            let filePath = Path.Combine(ctx.runtime.homeDirectory, path)
+            let filePath = Path.GetFullPath(Path.Combine(homeFolder, path))
             let uncompressed =
                 debugMsg (sprintf "getting Fs for %s" filePath)
                 let text = File.ReadAllText filePath
                 let cleaned:string = text |> fView
                 let layout =
-                    File.ReadAllText (Path.Combine(ctx.runtime.homeDirectory,Files.Views.layout))
-                    |> replace "@logout" """<a href="/Authentication/Logout">
+                    File.ReadAllText (Path.Combine(homeFolder,Files.Views.layout))
+                    |> StringHelpers.replace "@logout" """<a href="/Authentication/Logout">
                                     <i class="fa fa-fw fa-power-off"></i> Log Out
                                 </a>"""
 
                 if cleaned.Contains "@scripts" then
                     layout
-                    |> replace "@RenderBody()" (cleaned |> before "@scripts")
-                    |> replace "@RenderScripts()" (cleaned |> after "@scripts")
+                    |> StringHelpers.replace "@RenderBody()" (cleaned |> StringHelpers.before "@scripts")
+                    |> StringHelpers.replace "@RenderScripts()" (cleaned |> StringHelpers.after "@scripts")
                 else
                     layout
-                    |> replace "@RenderBody()" cleaned
-                    |> replace "@RenderScripts()" String.Empty
+                    |> StringHelpers.replace "@RenderBody()" cleaned
+                    |> StringHelpers.replace "@RenderScripts()" String.Empty
                 |> stringToStream
             Recombinators.resource filePath File.Exists (fun _ -> DateTime.Now) (Path.GetExtension) (fun _fn _compression -> sendCleaned uncompressed (* do not set compression to true for views, as they should not get cached, which compression appears to do *) false) ctx
         with _ex ->
@@ -250,9 +255,9 @@ let logonView homeFolder msg: WebPart =
     fun ctx ->
         let fServeView text =
             text
-            |> replace "@msg" msg
-            |> replace "@model.requestVerificationToken" (Guid.NewGuid() |> string)
-            |> replace "@returnPath" (match ctx.request.queryParam "returnPath" with Choice1Of2 rp -> rp | _ -> String.Empty)
+            |> StringHelpers.replace "@msg" msg
+            |> StringHelpers.replace "@model.requestVerificationToken" (Guid.NewGuid() |> string)
+            |> StringHelpers.replace "@returnPath" (match ctx.request.queryParam "returnPath" with Choice1Of2 rp -> rp | _ -> String.Empty)
 
         ServeItDammit.serveView homeFolder fServeView Files.Views.authentication ctx
 
