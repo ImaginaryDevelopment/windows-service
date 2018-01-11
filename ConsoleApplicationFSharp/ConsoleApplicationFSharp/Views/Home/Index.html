@@ -1,0 +1,18 @@
+﻿<div id="helloWorld" style="display:none"></div>
+<div id="index">
+
+</div>
+
+@scripts
+
+<script type="text/javascript" id="models">
+    var SomeLookup = @model.payerLookup;
+    var getCreateLink = function(payerId){
+        return "/item/Create?payerId=-1".replace("-1", payerId);
+    };
+    // putting model last to help with debugger/console view
+    var model = @model.viewModel;
+</script>
+
+<script src="/Scripts/components.jsx" type="text/jsx">
+</script>

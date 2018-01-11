@@ -1,4 +1,5 @@
 ﻿module SuaveFSharp.RicoSuave
+
 open Suave
 open Suave.Model.Binding
 open Suave.Operators
@@ -52,6 +53,7 @@ module Files =
     module Views =
         let authentication = "Views/Authentication/Login.html"
         let layout = "Views/Shared/_Layout.html"
+
 [<RequireQualifiedAccess>]
 module Recombinators =
     open System
@@ -82,7 +84,7 @@ module Recombinators =
               | Choice1Of2 date ->
                 if getLast key > date then sendIt value.name value.compression ctx
                 else NOT_MODIFIED ctx
-              | Choice2Of2 _parse_error -> bad_request [||] ctx
+              | Choice2Of2 _parse_error -> bad_request Array.empty ctx
             | Choice2Of2 _ ->
               sendIt value.name value.compression ctx
           | None ->
@@ -112,10 +114,10 @@ let getUserId ctx :int option=
 
 // replace all instances of "@"
 module ServeItDammit =
+    open System
     open System.IO
     open Suave.Sockets
     open Suave.Sockets.Control
-    open System
 
     let serveView homeFolder fView path ctx =
         try

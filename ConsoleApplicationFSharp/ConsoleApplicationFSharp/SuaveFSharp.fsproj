@@ -24,8 +24,10 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\$(Configuration)\$(AssemblyName).XML</DocumentationFile>
+    <DocumentationFile>
+    </DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
+    <OtherFlags>--warnon:1182 --warnaserror-:0052,0044</OtherFlags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -56,6 +58,15 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Content Include="Scripts\components.jsx" />
+    <Content Include="Scripts\extensions.js" />
+    <Content Include="Scripts\libs\bootstrap.js" />
+    <Content Include="Scripts\libs\jquery-3.1.1.js" />
+    <Content Include="Scripts\libs\modernizr-2.8.3.js" />
+    <Content Include="Scripts\libs\respond.js" />
+    <Content Include="Views\Home\Index.html" />
+    <Content Include="Views\Shared\_Layout.html" />
+    <Content Include="Views\Authentication\Login.html" />
     <Compile Include="Schema.fs" />
     <Compile Include="RicoSuave.fs" />
     <Compile Include="SuaveService.fs" />
@@ -82,7 +93,7 @@
       <HintPath>..\packages\Topshelf.4.0.3\lib\net452\Topshelf.dll</HintPath>
     </Reference>
   </ItemGroup>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
   </Target>
